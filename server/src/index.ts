@@ -58,10 +58,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-app.listen(config.port, () => {
-  console.log(`\n==============================================`);
-  console.log(`🚀 CodeLens AI Server running on port ${config.port}`);
-  console.log(`🧠 AI Provider: ${AIProviderFactory.getProvider().name}`);
-  console.log(`📁 Data Directory: ${config.dataDir}`);
-  console.log(`==============================================\n`);
-});
+// Only listen locally, Vercel exports app directly as a serverless function
+if (process.env.VERCEL !== '1') {
+  app.listen(config.port, () => {
+    console.log(`\n==============================================`);
+    console.log(`🚀 CodeLens AI Server running on port ${config.port}`);
+    console.log(`🧠 AI Provider: ${AIProviderFactory.getProvider().name}`);
+    console.log(`📁 Data Directory: ${config.dataDir}`);
+    console.log(`==============================================\n`);
+  });
+}
+
+export default app;

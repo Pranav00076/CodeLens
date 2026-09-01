@@ -4,14 +4,19 @@ import fs from 'fs';
 
 dotenv.config();
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = process.env.DATA_DIR || (isServerless ? path.join('/tmp', 'codelens-data') : path.join(process.cwd(), 'data'));
 const TEMP_DIR = path.join(DATA_DIR, 'temp');
 const REPOS_DIR = path.join(DATA_DIR, 'repos');
 
-// Ensure base directories exist
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
-if (!fs.existsSync(REPOS_DIR)) fs.mkdirSync(REPOS_DIR, { recursive: true });
+// Ensure base directories exist safely
+try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+  if (!fs.existsSync(REPOS_DIR)) fs.mkdirSync(REPOS_DIR, { recursive: true });
+} catch (err) {
+  console.warn('Directory initialization warning:', err);
+}
 
 export const config = {
   port: parseInt(process.env.PORT || '5001', 10),
