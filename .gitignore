@@ -19,6 +19,8 @@ out/
 *.tsbuildinfo
 
 # Server Data, Cloned Repositories & Uploads
+data/
+server/data/
 server/data/repos/
 server/data/uploads/
 server/data/codelens_db.json
