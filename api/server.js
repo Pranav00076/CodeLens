@@ -27645,7 +27645,7 @@ var RepoController = class {
     }
     res.json({ success: true, message: "Repository removed successfully" });
   }
-  static getFileContent(req, res) {
+  static async getFileContent(req, res) {
     const id = req.params.id;
     const filePath = req.query.path;
     if (!filePath) {
@@ -27696,24 +27696,49 @@ export const moduleData = {
       res.status(403).json({ success: false, error: "Access denied: Invalid path" });
       return;
     }
-    if (!import_fs8.default.existsSync(resolvedPath)) {
-      res.status(404).json({ success: false, error: "File not found on disk" });
-      return;
+    if (import_fs8.default.existsSync(resolvedPath)) {
+      try {
+        const content = import_fs8.default.readFileSync(resolvedPath, "utf-8");
+        res.json({
+          success: true,
+          data: {
+            path: filePath,
+            content,
+            lines: content.split("\n").length,
+            language: import_path8.default.extname(filePath).replace(".", "") || "text"
+          }
+        });
+        return;
+      } catch {
+      }
     }
-    try {
-      const content = import_fs8.default.readFileSync(resolvedPath, "utf-8");
-      res.json({
-        success: true,
-        data: {
-          path: filePath,
-          content,
-          lines: content.split("\n").length,
-          language: import_path8.default.extname(filePath).replace(".", "") || "text"
+    const repoName = repo.name;
+    if (repoName && repoName.includes("/")) {
+      const branches = ["main", "master", "develop"];
+      for (const branch of branches) {
+        const rawUrl = `https://raw.githubusercontent.com/${repoName}/${branch}/${filePath}`;
+        try {
+          const ghRes = await fetch(rawUrl, {
+            headers: { "User-Agent": "CodeLens-AI" }
+          });
+          if (ghRes.ok) {
+            const content = await ghRes.text();
+            res.json({
+              success: true,
+              data: {
+                path: filePath,
+                content,
+                lines: content.split("\n").length,
+                language: import_path8.default.extname(filePath).replace(".", "") || "text"
+              }
+            });
+            return;
+          }
+        } catch {
         }
-      });
-    } catch (err) {
-      res.status(500).json({ success: false, error: "Failed to read file" });
+      }
     }
+    res.status(404).json({ success: false, error: "File not found" });
   }
   static exportOnboardingMarkdown(req, res) {
     const id = req.params.id;

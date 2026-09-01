@@ -31,7 +31,7 @@ export class RepoController {
         }
         res.json({ success: true, message: 'Repository removed successfully' });
     }
-    static getFileContent(req, res) {
+    static async getFileContent(req, res) {
         const id = req.params.id;
         const filePath = req.query.path;
         if (!filePath) {
@@ -58,7 +58,6 @@ export class RepoController {
                 });
                 return;
             }
-            // If not specifically in demo map, return a representative template
             res.json({
                 success: true,
                 data: {
@@ -70,34 +69,62 @@ export class RepoController {
             });
             return;
         }
-        // Read real file from cloned or unzipped directory
+        // 1. Try reading from disk (works locally)
         const repoDir = path.join(config.reposDir, id);
-        // Secure path traversal check
         const normalizedRepoDir = path.normalize(repoDir);
         const resolvedPath = path.resolve(repoDir, filePath);
         if (!resolvedPath.startsWith(normalizedRepoDir)) {
             res.status(403).json({ success: false, error: 'Access denied: Invalid path' });
             return;
         }
-        if (!fs.existsSync(resolvedPath)) {
-            res.status(404).json({ success: false, error: 'File not found on disk' });
-            return;
+        if (fs.existsSync(resolvedPath)) {
+            try {
+                const content = fs.readFileSync(resolvedPath, 'utf-8');
+                res.json({
+                    success: true,
+                    data: {
+                        path: filePath,
+                        content,
+                        lines: content.split('\n').length,
+                        language: path.extname(filePath).replace('.', '') || 'text',
+                    },
+                });
+                return;
+            }
+            catch {
+                // Fall through to remote fetch
+            }
         }
-        try {
-            const content = fs.readFileSync(resolvedPath, 'utf-8');
-            res.json({
-                success: true,
-                data: {
-                    path: filePath,
-                    content,
-                    lines: content.split('\n').length,
-                    language: path.extname(filePath).replace('.', '') || 'text',
-                },
-            });
+        // 2. Disk file not found (serverless ephemeral /tmp) — fetch from GitHub raw content API
+        const repoName = repo.name; // e.g. "Pranav00076/skipsense"
+        if (repoName && repoName.includes('/')) {
+            const branches = ['main', 'master', 'develop'];
+            for (const branch of branches) {
+                const rawUrl = `https://raw.githubusercontent.com/${repoName}/${branch}/${filePath}`;
+                try {
+                    const ghRes = await fetch(rawUrl, {
+                        headers: { 'User-Agent': 'CodeLens-AI' },
+                    });
+                    if (ghRes.ok) {
+                        const content = await ghRes.text();
+                        res.json({
+                            success: true,
+                            data: {
+                                path: filePath,
+                                content,
+                                lines: content.split('\n').length,
+                                language: path.extname(filePath).replace('.', '') || 'text',
+                            },
+                        });
+                        return;
+                    }
+                }
+                catch {
+                    // Try next branch
+                }
+            }
         }
-        catch (err) {
-            res.status(500).json({ success: false, error: 'Failed to read file' });
-        }
+        res.status(404).json({ success: false, error: 'File not found' });
     }
     static exportOnboardingMarkdown(req, res) {
         const id = req.params.id;
