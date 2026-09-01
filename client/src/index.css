@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-dark: #090A0D;
+    --bg-card: #12141A;
+    --border-subtle: #222631;
+  }
+
+  body {
+    background-color: #090A0D;
+    color: #EDEDED;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    letter-spacing: -0.01em;
+  }
+
+  /* Minimalist developer scrollbars */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #272B36;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3F4452;
+  }
+}
+
+/* Minimalist Glass & Surface Utilities */
+.glass-panel {
+  background: rgba(18, 20, 26, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-card {
+  background: rgba(14, 16, 21, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hairline-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hairline-border-hover:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Code Diff Highlighting - Minimal & High Contrast */
+.diff-addition {
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #34D399;
+  border-left: 2px solid #10B981;
+}
+
+.diff-deletion {
+  background-color: rgba(244, 63, 94, 0.08);
+  color: #FB7185;
+  border-left: 2px solid #F43F5E;
+}
+
+.diff-header {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #A1A1AA;
+}
