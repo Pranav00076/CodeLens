@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 interface FileViewerModalProps {
   repoId: string;
   filePath: string | null;
+  repoName?: string;
   highlightLine?: number;
   onClose: () => void;
 }
@@ -12,6 +13,7 @@ interface FileViewerModalProps {
 export const FileViewerModal: React.FC<FileViewerModalProps> = ({
   repoId,
   filePath,
+  repoName,
   highlightLine,
   onClose,
 }) => {
@@ -27,7 +29,7 @@ export const FileViewerModal: React.FC<FileViewerModalProps> = ({
     setLoading(true);
     setError(null);
 
-    api.getFileContent(repoId, filePath)
+    api.getFileContent(repoId, filePath, repoName)
       .then((res) => {
         setContent(res.content);
         setLinesCount(res.lines);

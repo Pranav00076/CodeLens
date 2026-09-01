@@ -27648,11 +27648,37 @@ var RepoController = class {
   static async getFileContent(req, res) {
     const id = req.params.id;
     const filePath = req.query.path;
+    const queryRepoName = req.query.repoName;
     if (!filePath) {
       res.status(400).json({ success: false, error: "File path query parameter is required" });
       return;
     }
     const repo = dbService.getRepo(id);
+    if (!repo && queryRepoName && queryRepoName.includes("/")) {
+      const branches = ["main", "master", "develop"];
+      for (const branch of branches) {
+        const rawUrl = `https://raw.githubusercontent.com/${queryRepoName}/${branch}/${filePath}`;
+        try {
+          const ghRes = await fetch(rawUrl, { headers: { "User-Agent": "CodeLens-AI" } });
+          if (ghRes.ok) {
+            const content = await ghRes.text();
+            res.json({
+              success: true,
+              data: {
+                path: filePath,
+                content,
+                lines: content.split("\n").length,
+                language: import_path8.default.extname(filePath).replace(".", "") || "text"
+              }
+            });
+            return;
+          }
+        } catch {
+        }
+      }
+      res.status(404).json({ success: false, error: "File not found on GitHub" });
+      return;
+    }
     if (!repo) {
       res.status(404).json({ success: false, error: "Repository not found" });
       return;

@@ -41,6 +41,7 @@ export class RepoController {
   static async getFileContent(req: Request, res: Response): Promise<void> {
     const id = req.params.id as string;
     const filePath = req.query.path as string;
+    const queryRepoName = req.query.repoName as string | undefined;
 
     if (!filePath) {
       res.status(400).json({ success: false, error: 'File path query parameter is required' });
@@ -48,6 +49,33 @@ export class RepoController {
     }
 
     const repo = dbService.getRepo(id);
+
+    // If repo not in DB (serverless stateless) but repoName provided in query, go straight to GitHub
+    if (!repo && queryRepoName && queryRepoName.includes('/')) {
+      const branches = ['main', 'master', 'develop'];
+      for (const branch of branches) {
+        const rawUrl = `https://raw.githubusercontent.com/${queryRepoName}/${branch}/${filePath}`;
+        try {
+          const ghRes = await fetch(rawUrl, { headers: { 'User-Agent': 'CodeLens-AI' } });
+          if (ghRes.ok) {
+            const content = await ghRes.text();
+            res.json({
+              success: true,
+              data: {
+                path: filePath,
+                content,
+                lines: content.split('\n').length,
+                language: path.extname(filePath).replace('.', '') || 'text',
+              },
+            });
+            return;
+          }
+        } catch { /* try next branch */ }
+      }
+      res.status(404).json({ success: false, error: 'File not found on GitHub' });
+      return;
+    }
+
     if (!repo) {
       res.status(404).json({ success: false, error: 'Repository not found' });
       return;

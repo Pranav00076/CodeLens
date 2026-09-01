@@ -81,8 +81,10 @@ export const api = {
     return parseResponse(res);
   },
 
-  async getFileContent(repoId: string, path: string): Promise<{ path: string; content: string; lines: number; language: string }> {
-    const res = await fetch(`${API_BASE}/repos/${repoId}/file?path=${encodeURIComponent(path)}`);
+  async getFileContent(repoId: string, filePath: string, repoName?: string): Promise<{ path: string; content: string; lines: number; language: string }> {
+    const params = new URLSearchParams({ path: filePath });
+    if (repoName) params.set('repoName', repoName);
+    const res = await fetch(`${API_BASE}/repos/${repoId}/file?${params.toString()}`);
     return parseResponse(res);
   },
 

@@ -85,6 +85,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Full File Code Viewer Modal */}
       <FileViewerModal
         repoId={repo.id}
+        repoName={repo.name}
         filePath={viewingFile}
         highlightLine={highlightLine}
         onClose={() => {
