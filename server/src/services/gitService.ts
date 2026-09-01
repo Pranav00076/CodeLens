@@ -1,13 +1,14 @@
 import { simpleGit, SimpleGit } from 'simple-git';
 import fs from 'fs';
 import path from 'path';
+import { ZipService } from './zipService.js';
 import { config } from '../config.js';
 
 export class GitService {
   /**
    * Validates and normalizes GitHub repo URL
    */
-  static validateAndNormalizeUrl(inputUrl: string): { valid: boolean; normalizedUrl?: string; repoName?: string; error?: string } {
+  static validateAndNormalizeUrl(inputUrl: string): { valid: boolean; normalizedUrl?: string; repoName?: string; owner?: string; repo?: string; error?: string } {
     let cleanUrl = inputUrl.trim();
     if (!cleanUrl) {
       return { valid: false, error: 'Repository URL is required' };
@@ -37,20 +38,32 @@ export class GitService {
       const normalizedUrl = `https://github.com/${owner}/${repo}`;
       const repoName = `${owner}/${repo}`;
 
-      return { valid: true, normalizedUrl, repoName };
+      return { valid: true, normalizedUrl, repoName, owner, repo };
     } catch (err) {
       return { valid: false, error: 'Invalid URL format' };
     }
   }
 
   /**
-   * Clones a repository into a temporary directory
+   * Downloads or clones a repository into a directory (serverless safe)
    */
   static async cloneRepository(
     repoUrl: string,
     targetDir: string,
     onProgress?: (msg: string) => void
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; rootDir?: string; error?: string }> {
+    const validation = this.validateAndNormalizeUrl(repoUrl);
+
+    // 1. If it's a public GitHub repo, try direct fast HTTP zipball fetch first (Works in Serverless / Lambda / Vercel without git CLI)
+    if (validation.valid && validation.owner && validation.repo) {
+      const zipDownloadResult = await this.downloadGitHubZip(validation.owner, validation.repo, targetDir, onProgress);
+      if (zipDownloadResult.success) {
+        return zipDownloadResult;
+      }
+      console.warn('Direct GitHub zip download failed, attempting git clone fallback:', zipDownloadResult.error);
+    }
+
+    // 2. Git CLI clone fallback
     try {
       if (fs.existsSync(targetDir)) {
         fs.rmSync(targetDir, { recursive: true, force: true });
@@ -63,7 +76,7 @@ export class GitService {
         },
       });
 
-      if (onProgress) onProgress(`Connecting to ${repoUrl}...`);
+      if (onProgress) onProgress(`Cloning ${repoUrl}...`);
 
       await git.clone(repoUrl, targetDir, [
         '--depth', '1',
@@ -72,10 +85,9 @@ export class GitService {
       ]);
 
       if (onProgress) onProgress('Cloning completed successfully.');
-      return { success: true };
+      return { success: true, rootDir: targetDir };
     } catch (err: any) {
       console.error('Git clone error:', err);
-      // Clean up directory on failure
       if (fs.existsSync(targetDir)) {
         fs.rmSync(targetDir, { recursive: true, force: true });
       }
@@ -83,8 +95,52 @@ export class GitService {
         success: false,
         error: err.message?.includes('Authentication failed')
           ? 'Failed to clone repository. Please check if the repository is public.'
-          : (err.message || 'Failed to clone repository'),
+          : (err.message || 'Failed to clone repository. Please ensure the repository is public and accessible.'),
       };
     }
+  }
+
+  /**
+   * Downloads repository zip archive directly via HTTP (Zero git CLI dependency)
+   */
+  private static async downloadGitHubZip(
+    owner: string,
+    repo: string,
+    targetDir: string,
+    onProgress?: (msg: string) => void
+  ): Promise<{ success: boolean; rootDir?: string; error?: string }> {
+    const urls = [
+      `https://github.com/${owner}/${repo}/archive/refs/heads/main.zip`,
+      `https://github.com/${owner}/${repo}/archive/refs/heads/master.zip`,
+      `https://api.github.com/repos/${owner}/${repo}/zipball`,
+    ];
+
+    for (const url of urls) {
+      try {
+        if (onProgress) onProgress(`Fetching repository archive from ${url}...`);
+
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'CodeLens-AI',
+            'Accept': 'application/vnd.github.v3+json, application/zip',
+          },
+          redirect: 'follow',
+        });
+
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          const extractResult = ZipService.extractZipBuffer(buffer, targetDir);
+          if (extractResult.success) {
+            return { success: true, rootDir: extractResult.rootDir };
+          }
+        }
+      } catch (err: any) {
+        console.warn(`Failed fetching from ${url}:`, err.message);
+      }
+    }
+
+    return { success: false, error: 'Could not download repository archive from GitHub' };
   }
 }

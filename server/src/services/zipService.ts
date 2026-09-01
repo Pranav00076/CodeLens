@@ -4,20 +4,16 @@ import path from 'path';
 
 export class ZipService {
   /**
-   * Extracts a zip file safely into target directory, avoiding Zip Slip vulnerabilities
+   * Extracts a zip buffer safely into target directory, avoiding Zip Slip vulnerabilities
    */
-  static extractZip(zipFilePath: string, targetDir: string): { success: boolean; rootDir: string; error?: string } {
+  static extractZipBuffer(buffer: Buffer, targetDir: string): { success: boolean; rootDir: string; error?: string } {
     try {
-      if (!fs.existsSync(zipFilePath)) {
-        return { success: false, rootDir: '', error: 'ZIP file not found' };
-      }
-
       if (fs.existsSync(targetDir)) {
         fs.rmSync(targetDir, { recursive: true, force: true });
       }
       fs.mkdirSync(targetDir, { recursive: true });
 
-      const zip = new AdmZip(zipFilePath);
+      const zip = new AdmZip(buffer);
       const zipEntries = zip.getEntries();
 
       for (const entry of zipEntries) {
@@ -49,6 +45,22 @@ export class ZipService {
       }
 
       return { success: true, rootDir: effectiveRoot };
+    } catch (err: any) {
+      console.error('ZIP buffer extraction error:', err);
+      return { success: false, rootDir: '', error: err.message || 'Failed to extract ZIP archive' };
+    }
+  }
+
+  /**
+   * Extracts a zip file safely into target directory, avoiding Zip Slip vulnerabilities
+   */
+  static extractZip(zipFilePath: string, targetDir: string): { success: boolean; rootDir: string; error?: string } {
+    try {
+      if (!fs.existsSync(zipFilePath)) {
+        return { success: false, rootDir: '', error: 'ZIP file not found' };
+      }
+      const buffer = fs.readFileSync(zipFilePath);
+      return this.extractZipBuffer(buffer, targetDir);
     } catch (err: any) {
       console.error('ZIP extraction error:', err);
       return { success: false, rootDir: '', error: err.message || 'Failed to extract ZIP archive' };

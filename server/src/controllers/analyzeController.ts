@@ -55,11 +55,13 @@ export class AnalyzeController {
         return;
       }
 
+      const scanRoot = cloneResult.rootDir || targetDir;
+
       // 2. Scan directory
-      const scanResult = ScannerService.scanDirectory(targetDir);
+      const scanResult = ScannerService.scanDirectory(scanRoot);
 
       // 3. Extract Deep Domain Metadata from README & Manifests
-      const domainMeta = DomainParserService.extractDomainMetadata(targetDir, scanResult.allScannedFiles);
+      const domainMeta = DomainParserService.extractDomainMetadata(scanRoot, scanResult.allScannedFiles);
 
       // 4. Prioritize Key Files (README, Manifests, Entry Points, Core Modules)
       const prioritizedFiles = AnalyzeController.prioritizeFiles(scanResult.allScannedFiles, scanResult.entryPoints, domainMeta);
