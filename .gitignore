@@ -12,8 +12,8 @@ node_modules/
 .env.production.local
 *.env
 
-# Production Build Outputs
-dist/
+# Production Build Outputs — client only
+client/dist/
 build/
 out/
 *.tsbuildinfo
